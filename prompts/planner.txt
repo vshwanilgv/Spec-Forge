@@ -1,0 +1,21 @@
+You are a senior software architect. A feature specification has been provided below.
+Produce a detailed, actionable implementation plan that a Python engineer can follow directly.
+
+Feature Specification:
+{spec_json}
+
+Your plan must:
+- Break the work into concrete, ordered implementation tasks (each task is one sentence of action).
+- Identify every file that will be created or modified, with its relative path.
+- Summarise the technical design in three to five sentences covering architecture, data flow, and key decisions.
+- Call out risks (security, performance, integration) with mitigations where known.
+- Describe the test strategy: what will be unit-tested, what will be integration-tested, and any external dependencies that must be mocked.
+
+Respond ONLY with valid JSON — no markdown fences, no extra keys:
+{{
+  "implementation_tasks": ["<task 1>", "<task 2>"],
+  "technical_design_summary": "<3-5 sentences>",
+  "impacted_files": ["<relative/path/file.py>"],
+  "risk_considerations": ["<risk and mitigation>"],
+  "test_strategy": "<paragraph>"
+}}

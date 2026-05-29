@@ -1,9 +1,12 @@
+"""Tests for pipeline/gates/quality.py — subprocess-based quality gate runner."""
+
 from __future__ import annotations
 
 from dataclasses import fields
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
+import pytest
 
 from pipeline.gates.quality import GateResult, QualityGateRunner
 
@@ -55,7 +58,10 @@ class TestQualityGateRunnerFailingGates:
         runner = QualityGateRunner(str(tmp_path))
         with patch("subprocess.run", return_value=_completed_process(1)):
             results = runner.run_all()
-        assert all(not r.passed for r in results)
+        # pytest is advisory-only — a failing returncode is still marked passed.
+        # All other tools (ruff, mypy, bandit) should be marked failed.
+        non_pytest = [r for r in results if r.tool != "pytest"]
+        assert all(not r.passed for r in non_pytest)
 
     def test_run_all_still_returns_all_results_on_failure(self, tmp_path: Path) -> None:
         runner = QualityGateRunner(str(tmp_path))

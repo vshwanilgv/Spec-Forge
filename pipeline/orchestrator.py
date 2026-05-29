@@ -26,7 +26,9 @@ from pipeline.models import (
 )
 from pipeline.state.store import StateStore
 
+# Model is read from config at runtime — see _get_decision()
 _JSON_RESPONSE_FORMAT: dict = {"type": "json_object"}
+# Branch names are built per-run in _handle_checkpoint_1 / _handle_checkpoint_2
 _CLONE_URL_TEMPLATE = "https://{token}@github.com/{repo}.git"
 
 
@@ -52,8 +54,16 @@ class Orchestrator:
         self._approval: GitHubApproval | None = None
         self._orchestrator_prompt = self._load_orchestrator_prompt()
 
+    # ------------------------------------------------------------------
+    # Main loop
+    # ------------------------------------------------------------------
+
     def run(self) -> None:
+        import time
         self._webhook.start(self._config.WEBHOOK_PORT)
+        # Give uvicorn time to fully bind before opening any PR.
+        # Without this, a fast merge can arrive before the listener is ready.
+        time.sleep(3)
 
         while True:
             decision = self._get_decision()
@@ -81,11 +91,21 @@ class Orchestrator:
                     if aborted:
                         return
 
+    # ------------------------------------------------------------------
+    # Orchestrator decision
+    # ------------------------------------------------------------------
+
     def _load_orchestrator_prompt(self) -> str:
         path = Path(self._config.PROMPTS_DIR) / "orchestrator.txt"
         return path.read_text(encoding="utf-8")
 
     def _get_decision(self) -> OrchestratorDecision:
+        """Deterministic routing for the happy path.
+
+        The pipeline sequence is fixed so we route by inspecting state directly.
+        The LLM is only called when an agent has just failed, to decide retry vs abort.
+        This eliminates routing loops and cuts token usage dramatically.
+        """
         s = self._state
         results = s.agent_results
 
@@ -136,7 +156,17 @@ class Orchestrator:
             )
         )
 
+    # ------------------------------------------------------------------
+    # Agent dispatch
+    # ------------------------------------------------------------------
+
     def _handle_agent(self, agent_name: str, retry_allowed: bool) -> bool:
+        """Returns True if the pipeline was aborted.
+
+        On failure the retry count is incremented and the loop continues,
+        letting the orchestrator decide in the next iteration whether to
+        retry or abort. The hard cap (MAX_RETRIES) is enforced here.
+        """
         retry_count = self._state.retry_counts.get(agent_name, 0)
         context = self._build_context(agent_name, retry_count)
         agent = self._build_agent(agent_name)
@@ -255,7 +285,12 @@ class Orchestrator:
             case _:
                 raise ValueError(f"No context builder for agent: '{agent_name}'")
 
+    # ------------------------------------------------------------------
+    # Quality gates
+    # ------------------------------------------------------------------
+
     def _handle_quality_gates(self) -> bool:
+        """Returns True if the pipeline was aborted."""
         repo_path = str(self._run_dir / "repo")
         runner = QualityGateRunner(repo_path)
         results = runner.run_all()
@@ -282,7 +317,12 @@ class Orchestrator:
         self._state_store.save(self._state)
         return False
 
+    # ------------------------------------------------------------------
+    # Checkpoint (GitHub PR + webhook)
+    # ------------------------------------------------------------------
+
     def _handle_checkpoint(self) -> bool:
+        """Returns True if the pipeline was aborted."""
         if not self._state.checkpoint_1_merged:
             return self._handle_checkpoint_1()
         if not self._state.checkpoint_2_merged:
@@ -336,6 +376,10 @@ class Orchestrator:
         self._state_store.save(self._state)
         return False
 
+    # ------------------------------------------------------------------
+    # Finalise / abort
+    # ------------------------------------------------------------------
+
     def _finalise(self) -> None:
         self._state.status = "completed"
         self._state_store.save(self._state)
@@ -361,6 +405,10 @@ class Orchestrator:
             )
         )
         print(f"Pipeline aborted: {reason}")
+
+    # ------------------------------------------------------------------
+    # Data extraction from agent results
+    # ------------------------------------------------------------------
 
     def _last_successful_result(self, agent_name: str) -> AgentResult | None:
         for result in reversed(self._state.agent_results):
@@ -409,8 +457,16 @@ class Orchestrator:
                 )
         return source + tests
 
-    def _summarise_state_for_routing(self) -> str:
+    # ------------------------------------------------------------------
+    # Repo + approval initialisation
+    # ------------------------------------------------------------------
 
+    def _summarise_state_for_routing(self) -> str:
+        """Return a token-efficient state summary for orchestrator routing decisions.
+
+        Strips verbose agent output fields — the orchestrator only needs to know
+        which agents succeeded, not the full content they produced.
+        """
         import json
         state = self._state.model_dump()
         state["agent_results"] = [

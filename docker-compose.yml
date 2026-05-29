@@ -9,7 +9,9 @@ services:
       - ./runs:/app/runs
     env_file:
       - .env
-    command: ["tail", "-f", "/dev/null"]
+    command: ["python", "-m", "pipeline.main", "ui", "--port", "8000"]
+    ports:
+      - "8000:8000"
     depends_on:
       - ngrok
     networks:
@@ -21,7 +23,7 @@ services:
     command:
       - http
       - "--url=${NGROK_DOMAIN}"
-      - "pipeline:${WEBHOOK_PORT}"
+      - "pipeline:8080"
     environment:
       NGROK_AUTHTOKEN: "${NGROK_AUTH_TOKEN}"
     ports:

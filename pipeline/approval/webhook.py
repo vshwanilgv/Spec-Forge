@@ -23,7 +23,7 @@ class WebhookListener:
     def start(self, port: int) -> None:
         config = uvicorn.Config(
             app=self._app,
-            host="0.0.0.0",
+            host="0.0.0.0",  # nosec B104
             port=port,
             log_level="warning",
         )

@@ -1,0 +1,45 @@
+feature_objective: >
+  Implement a secure, stateless user authentication system that issues
+  short-lived JWT access tokens upon successful credential verification,
+  enforces token expiry, and stores passwords using an adaptive hashing
+  algorithm resistant to brute-force attacks.
+
+user_story: >
+  As a registered user, I want to submit my email and password to a login
+  endpoint so that I receive a signed JWT access token I can use to
+  authenticate subsequent API requests, with the assurance that my
+  password is never stored in plain text and that my session automatically
+  expires after a configurable period.
+
+business_rules:
+  - Passwords must be hashed with bcrypt using a minimum cost factor of 12 before persistence.
+  - JWT tokens must be signed with HS256 using a secret of at least 32 characters.
+  - Access tokens must expire after 60 minutes from the time of issuance.
+  - A login attempt with an unrecognised email must return the same error response as a wrong password (no user enumeration).
+  - Rate limiting must cap authentication attempts at 10 per IP per minute.
+  - Refresh tokens are out of scope for this iteration.
+
+acceptance_criteria:
+  - "POST /auth/login with valid credentials returns HTTP 200 and a JSON body containing access_token, token_type bearer, and expires_in 3600."
+  - "POST /auth/login with an invalid password returns HTTP 401 with detail Invalid credentials and does not reveal whether the email exists."
+  - "POST /auth/login with a missing email or password field returns HTTP 422."
+  - "A protected endpoint called with a valid unexpired token returns HTTP 200."
+  - "A protected endpoint called with an expired token returns HTTP 401 with detail Token has expired."
+  - "A protected endpoint called with a structurally invalid token returns HTTP 401 with detail Invalid token."
+  - "Password stored in the user record is a bcrypt hash, never the plaintext value."
+  - "The bcrypt cost factor used at registration is at least 12."
+
+non_functional_requirements:
+  - P99 response time for POST /auth/login must be under 800 ms under a load of 50 concurrent users.
+  - The service must achieve a Bandit security scan score with zero high-severity findings.
+  - All public functions and classes must carry full type annotations compatible with mypy strict mode.
+  - Test coverage for the authentication module must be at or above 90 percent.
+  - The implementation must not introduce any dependency not already present in requirements.txt.
+
+out_of_scope:
+  - OAuth 2.0 / OpenID Connect flows.
+  - Refresh token issuance or rotation.
+  - Multi-factor authentication.
+  - User registration endpoint (assume a user store already exists).
+  - Password reset or account recovery flows.
+  - Persistent session storage (tokens are stateless).

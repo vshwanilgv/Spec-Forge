@@ -36,7 +36,7 @@ class BaseAgent:
                 raw = response.choices[0].message.content or "{}"
                 tokens = response.usage.total_tokens if response.usage else 0
                 return json.loads(raw), tokens
-            except RateLimitError as exc:
+            except RateLimitError:
                 if attempt == _RATE_LIMIT_RETRIES - 1:
                     raise
                 wait = _RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)

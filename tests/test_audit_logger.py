@@ -5,7 +5,6 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 
 from pipeline.audit.logger import AuditLogger
 from pipeline.models import AuditEntry

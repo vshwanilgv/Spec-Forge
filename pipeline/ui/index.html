@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec-Forge — AI Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --border-bright: #2a2a3e;
+    --text: #e2e2f0;
+    --muted: #6b6b8a;
+    --accent: #7c6af7;
+    --accent-dim: #3d3478;
+    --green: #3dffa0;
+    --green-dim: #0d3d28;
+    --amber: #ffb84d;
+    --red: #ff5f7e;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    grid-template-rows: 56px 1fr;
+  }
+
+  /* ── Header ── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .header-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ── Left panel ── */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  textarea {
+    width: 100%;
+    height: 280px;
+    background: var(--bg);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.7;
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+
+  .btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 11px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:hover { opacity: 0.9; }
+  .btn:active { transform: scale(0.99); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Timeline ── */
+  .timeline {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .stage {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 4px;
+    position: relative;
+  }
+
+  .stage:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 26px;
+    width: 1px;
+    height: calc(100% - 10px);
+    background: var(--border-bright);
+  }
+
+  .stage-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--border-bright);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    z-index: 1;
+    transition: all 0.3s;
+  }
+
+  .stage.done .stage-icon {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .stage.running .stage-icon {
+    border-color: var(--accent);
+    animation: pulse-ring 1.5s infinite;
+  }
+
+  .stage.waiting .stage-icon {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .stage.failed .stage-icon {
+    background: #3d0d1a;
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(124,106,247,0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(124,106,247,0); }
+  }
+
+  .stage-body { flex: 1; padding-bottom: 18px; }
+
+  .stage-name {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    transition: color 0.3s;
+    line-height: 1.4;
+    margin-top: 1px;
+  }
+
+  .stage.done .stage-name, .stage.running .stage-name { color: var(--text); }
+  .stage.waiting .stage-name { color: var(--amber); }
+  .stage.failed .stage-name { color: var(--red); }
+
+  .stage-detail {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .stage-time {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    opacity: 0.6;
+  }
+
+  .pr-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    padding: 5px 10px;
+    background: rgba(255,184,77,0.08);
+    border: 1px solid rgba(255,184,77,0.25);
+    border-radius: 4px;
+    color: var(--amber);
+    font-size: 11px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .pr-link:hover { background: rgba(255,184,77,0.15); }
+
+  .merge-hint {
+    margin-top: 5px;
+    font-size: 10px;
+    color: var(--amber);
+    opacity: 0.7;
+    animation: blink 2s infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:0.7} 50%{opacity:0.3} }
+
+  /* ── Right panel ── */
+  .panel-right {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .tab {
+    padding: 14px 20px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-content {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+    display: none;
+  }
+
+  .tab-content.active { display: block; }
+
+  /* ── Log stream ── */
+  .log-line {
+    display: flex;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    line-height: 1.5;
+    animation: fadein 0.3s ease;
+  }
+
+  @keyframes fadein { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+  .log-time { color: var(--muted); flex-shrink: 0; width: 85px; }
+  .log-type { flex-shrink: 0; width: 170px; }
+  .log-type.spec_ingested { color: #7dd3fc; }
+  .log-type.agent_called, .log-type.agent_result { color: var(--accent); }
+  .log-type.checkpoint_opened { color: var(--amber); }
+  .log-type.checkpoint_approved { color: var(--green); }
+  .log-type.gate_result { color: #a78bfa; }
+  .log-type.pipeline_completed { color: var(--green); }
+  .log-type.pipeline_failed { color: var(--red); }
+  .log-type.orchestrator_decision { color: #94a3b8; }
+  .log-payload { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Plan viewer ── */
+  .plan-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  /* ── Files viewer ── */
+  .file-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    animation: fadein 0.3s ease;
+  }
+
+  .file-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .file-path {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .file-meta { font-size: 10px; color: var(--muted); }
+
+  .file-body {
+    max-height: 300px;
+    overflow: auto;
+    background: var(--bg);
+  }
+
+  .file-body pre {
+    padding: 14px;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--text);
+    margin: 0;
+  }
+
+  /* ── Empty / intro state ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .empty-state .glyph {
+    font-size: 40px;
+    opacity: 0.15;
+    filter: grayscale(1);
+  }
+
+  .empty-state p { font-size: 12px; line-height: 1.6; max-width: 260px; }
+
+  /* ── Success banner ── */
+  .success-banner {
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--green);
+  }
+
+  .run-id-badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  /* ── Gate results ── */
+  .gate-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+  }
+
+  .gate-ok { color: var(--green); }
+  .gate-fail { color: var(--red); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Spec<span>Forge</span></div>
+  <div class="badge">AI Pipeline</div>
+  <div class="header-status">
+    <div class="dot online" id="status-dot"></div>
+    <span id="status-text">ready</span>
+  </div>
+</header>
+
+<!-- Left: Spec input + timeline -->
+<div class="panel-left">
+  <div class="panel-section">
+    <div class="panel-label">Feature Specification</div>
+    <textarea id="spec-input" placeholder="Paste your YAML spec here...&#10;&#10;feature_objective: >&#10;  ...&#10;&#10;user_story: >&#10;  ...&#10;&#10;business_rules:&#10;  - ...&#10;&#10;acceptance_criteria:&#10;  - ...&#10;&#10;non_functional_requirements:&#10;  - ...&#10;&#10;out_of_scope:&#10;  - ..."></textarea>
+    <button class="btn" id="run-btn" onclick="startRun()">▶ Run Pipeline</button>
+  </div>
+
+  <div class="timeline" id="timeline">
+    <div class="panel-label">Pipeline Stages</div>
+    <div id="stages">
+      <!-- Stages rendered by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Right: Live output -->
+<div class="panel-right">
+  <div class="panel-tabs">
+    <div class="tab active" onclick="switchTab('log')">Live Log</div>
+    <div class="tab" onclick="switchTab('plan')">Plan</div>
+    <div class="tab" onclick="switchTab('files')">Generated Files</div>
+  </div>
+
+  <div class="tab-content active" id="tab-log">
+    <div class="empty-state" id="log-empty">
+      <div class="glyph">⚡</div>
+      <p>Pipeline events will stream here in real time once you start a run.</p>
+    </div>
+    <div id="log-lines" style="display:none"></div>
+  </div>
+
+  <div class="tab-content" id="tab-plan">
+    <div class="empty-state" id="plan-empty">
+      <div class="glyph">📋</div>
+      <p>The AI-generated implementation plan will appear here after the planner completes.</p>
+    </div>
+    <div id="plan-content" style="display:none"></div>
+  </div>
+
+  <div class="tab-content" id="tab-files">
+    <div class="empty-state" id="files-empty">
+      <div class="glyph">🗂</div>
+      <p>Generated source files and tests will appear here after the implementer completes.</p>
+    </div>
+    <div id="files-content" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const STAGE_DEFS = [
+  { id: 'planner',       label: 'Planner',          icon: '📐', events: ['agent_called:planner'],        done: ['agent_result:planner:true'] },
+  { id: 'checkpoint_1',  label: 'Plan Review PR',    icon: '👁', events: ['checkpoint_opened:checkpoint_1'], done: ['checkpoint_approved'], waiting: true },
+  { id: 'implementer',   label: 'Implementer',       icon: '⚙', events: ['agent_called:implementer'],   done: ['agent_result:implementer:true'] },
+  { id: 'test_gen',      label: 'Test Generator',    icon: '🧪', events: ['agent_called:test_generator'], done: ['agent_result:test_generator:true'] },
+  { id: 'reviewer',      label: 'Reviewer',          icon: '👀', events: ['agent_called:reviewer'],      done: ['agent_result:reviewer:true'] },
+  { id: 'quality_gates', label: 'Quality Gates',     icon: '✅', events: ['gate_result'],                done: ['quality_gates_done'] },
+  { id: 'checkpoint_2',  label: 'Deploy Review PR',  icon: '🚀', events: ['checkpoint_opened:checkpoint_2'], done: ['pipeline_completed'], waiting: true },
+];
+
+let currentRunId = null;
+let stageStates = {};
+let gateResults = [];
+let lastCheckpointPR = null;
+
+function initStages() {
+  stageStates = {};
+  STAGE_DEFS.forEach(s => stageStates[s.id] = 'pending');
+  renderStages();
+}
+
+function renderStages() {
+  const container = document.getElementById('stages');
+  container.innerHTML = STAGE_DEFS.map(s => {
+    const state = stageStates[s.id] || 'pending';
+    const data = stageStates[s.id + '_data'] || {};
+    let detail = '';
+    let extra = '';
+
+    if (s.id === 'quality_gates' && gateResults.length > 0) {
+      detail = gateResults.map(g =>
+        `<div class="gate-row"><span class="${g.passed ? 'gate-ok' : 'gate-fail'}">${g.passed ? '✓' : '✗'}</span> ${g.tool}</div>`
+      ).join('');
+    }
+
+    if ((s.id === 'checkpoint_1' || s.id === 'checkpoint_2') && data.pr_url) {
+      extra = `<a class="pr-link" href="${data.pr_url}" target="_blank">↗ Open PR #${data.pr_number}</a>`;
+      if (state === 'waiting') {
+        extra += `<div class="merge-hint">⏳ Waiting for you to merge…</div>`;
+      }
+    }
+
+    if (data.score !== undefined) {
+      detail = `Score: ${data.score}/10`;
+    }
+
+    if (data.time) {
+      extra += `<div class="stage-time">${data.time}</div>`;
+    }
+
+    return `
+      <div class="stage ${state}" id="stage-${s.id}">
+        <div class="stage-icon">${state === 'done' ? '✓' : state === 'failed' ? '✗' : s.icon}</div>
+        <div class="stage-body">
+          <div class="stage-name">${s.label}</div>
+          ${detail ? `<div class="stage-detail">${detail}</div>` : ''}
+          ${extra}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function setStage(id, state, data = {}) {
+  stageStates[id] = state;
+  if (data) stageStates[id + '_data'] = { ...stageStates[id + '_data'], ...data, time: new Date().toLocaleTimeString() };
+  renderStages();
+}
+
+function handleEvent(entry) {
+  const { event_type, payload } = entry;
+  const time = new Date(entry.timestamp || Date.now()).toLocaleTimeString();
+  addLogLine(event_type, payload, time);
+
+  switch (event_type) {
+    case 'agent_called':
+      setStage(payload.agent === 'test_generator' ? 'test_gen' : payload.agent, 'running');
+      break;
+
+    case 'agent_result':
+      const sid = payload.agent === 'test_generator' ? 'test_gen' : payload.agent;
+      const data = {};
+      if (payload.output?.score !== undefined) data.score = payload.output.score;
+      setStage(sid, payload.success ? 'done' : 'failed', data);
+
+      if (payload.agent === 'planner' && payload.success) {
+        fetchPlan();
+      }
+      if (payload.agent === 'implementer' && payload.success) {
+        fetchFiles();
+      }
+      break;
+
+    case 'checkpoint_opened':
+      const cpId = payload.checkpoint === 'checkpoint_1' ? 'checkpoint_1' : 'checkpoint_2';
+      setStage(cpId, 'waiting', { pr_url: payload.pr_url, pr_number: payload.pr_number });
+      setStatus(`Waiting for PR #${payload.pr_number} to be merged…`, 'amber');
+      break;
+
+    case 'checkpoint_approved':
+      const approved = stageStates['checkpoint_1_data']?.pr_number === payload.pr_number
+        ? 'checkpoint_1' : 'checkpoint_2';
+      setStage(approved, 'done');
+      break;
+
+    case 'gate_result':
+      gateResults.push(payload);
+      if (gateResults.length === 1) setStage('quality_gates', 'running');
+      if (gateResults.length === 4) {
+        const allPass = gateResults.every(g => g.passed);
+        stageStates['quality_gates_done'] = true;
+        setStage('quality_gates', allPass ? 'done' : 'failed');
+      }
+      break;
+
+    case 'pipeline_completed':
+      setStage('checkpoint_2', 'done');
+      setStatus('Pipeline completed ✓', 'green');
+      document.getElementById('run-btn').disabled = false;
+      showSuccessBanner();
+      switchTab('files');
+      break;
+
+    case 'pipeline_failed':
+      setStatus(`Aborted: ${payload.reason}`, 'red');
+      document.getElementById('run-btn').disabled = false;
+      break;
+  }
+}
+
+function addLogLine(type, payload, time) {
+  const empty = document.getElementById('log-empty');
+  const lines = document.getElementById('log-lines');
+  if (empty) empty.style.display = 'none';
+  lines.style.display = 'block';
+
+  const payloadStr = JSON.stringify(payload).slice(0, 120);
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-type ${type}">${type}</span>
+    <span class="log-payload">${payloadStr}</span>`;
+  lines.appendChild(line);
+  lines.scrollTop = lines.scrollHeight;
+}
+
+function setStatus(text, color = 'muted') {
+  document.getElementById('status-text').textContent = text;
+  const colors = { green: 'var(--green)', amber: 'var(--amber)', red: 'var(--red)', muted: 'var(--muted)' };
+  document.getElementById('status-dot').style.background = colors[color] || colors.muted;
+}
+
+async function startRun() {
+  const yaml = document.getElementById('spec-input').value.trim();
+  if (!yaml) { alert('Please paste a YAML spec first.'); return; }
+
+  // Reset state
+  gateResults = [];
+  currentRunId = null;
+  document.getElementById('log-lines').innerHTML = '';
+  document.getElementById('log-lines').style.display = 'none';
+  document.getElementById('log-empty').style.display = 'flex';
+  document.getElementById('plan-content').style.display = 'none';
+  document.getElementById('plan-empty').style.display = 'flex';
+  document.getElementById('files-content').style.display = 'none';
+  document.getElementById('files-empty').style.display = 'flex';
+  initStages();
+
+  document.getElementById('run-btn').disabled = true;
+  setStatus('Starting pipeline…');
+  switchTab('log');
+
+  try {
+    const res = await fetch('/api/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spec_yaml: yaml }),
+    });
+    const { run_id } = await res.json();
+    currentRunId = run_id;
+    setStatus('Pipeline running…');
+    streamEvents(run_id);
+  } catch (err) {
+    setStatus('Failed to start run', 'red');
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+function streamEvents(runId) {
+  const source = new EventSource(`/api/runs/${runId}/stream`);
+  source.onmessage = e => {
+    try { handleEvent(JSON.parse(e.data)); } catch {}
+  };
+  source.onerror = () => {
+    source.close();
+    setStatus('Stream disconnected', 'red');
+    document.getElementById('run-btn').disabled = false;
+  };
+}
+
+async function fetchPlan() {
+  if (!currentRunId) return;
+  try {
+    const res = await fetch(`/api/runs/${currentRunId}/plan`);
+    if (!res.ok) return;
+    const { content } = await res.json();
+    document.getElementById('plan-empty').style.display = 'none';
+    const pc = document.getElementById('plan-content');
+    pc.style.display = 'block';
+    pc.innerHTML = `<div class="plan-content">${escHtml(content)}</div>`;
+  } catch {}
+}
+
+async function fetchFiles() {
+  if (!currentRunId) return;
+  // Poll a few times since files appear after implementer completes
+  for (let i = 0; i < 5; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const res = await fetch(`/api/runs/${currentRunId}/files`);
+      if (!res.ok) continue;
+      const { files } = await res.json();
+      if (!files.length) continue;
+      document.getElementById('files-empty').style.display = 'none';
+      const fc = document.getElementById('files-content');
+      fc.style.display = 'block';
+      fc.innerHTML = files.map(f => `
+        <div class="file-card">
+          <div class="file-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+            <span class="file-path">${escHtml(f.path)}</span>
+            <span class="file-meta">${f.lines} lines</span>
+          </div>
+          <div class="file-body">
+            <pre>${escHtml(f.content)}</pre>
+          </div>
+        </div>`).join('');
+      break;
+    } catch {}
+  }
+}
+
+function showSuccessBanner() {
+  const fc = document.getElementById('files-content');
+  const banner = document.createElement('div');
+  banner.className = 'success-banner';
+  banner.innerHTML = `🎉 Pipeline completed successfully <span class="run-id-badge">${currentRunId}</span>`;
+  fc.insertBefore(banner, fc.firstChild);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['log', 'plan', 'files'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Initialise
+initStages();
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -141,22 +142,15 @@ def run_command(spec_path: str) -> None:
     )
     orchestrator.run()
 
-
-
-
 def ui_command(port: int) -> None:
     import uvicorn
     from pipeline.ui.server import app
     print(f"Spec-Forge UI running at http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
+
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="python -m pipeline.main",
-        description="AI-native spec-driven development pipeline",
-    )
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    run_parser = subparsers.add_parser("run", help="Execute a pipeline run from a spec file")
+    ...
     run_parser.add_argument("--spec", required=True, metavar="PATH", help="Path to the spec file")
     ui_parser = subparsers.add_parser("ui", help="Start the web UI")
     ui_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
@@ -174,3 +168,10 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def ui_command(port: int) -> None:
+    import uvicorn
+    from pipeline.ui.server import app
+    print(f"Spec-Forge UI running at http://localhost:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

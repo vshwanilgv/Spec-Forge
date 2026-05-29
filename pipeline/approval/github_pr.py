@@ -87,7 +87,11 @@ class GitHubApproval:
             self._local_repo.create_head(branch, origin.refs[base]).checkout()
 
     def _stage_and_commit(self, paths: list[str], message: str) -> None:
-        self._local_repo.index.add(paths)
+        existing = [p for p in paths if (self._repo_root / p).exists()]
+        if not existing:
+            self._local_repo.index.commit(f"{message} [no files written]")
+            return
+        self._local_repo.index.add(existing)
         self._local_repo.index.commit(message)
 
     def _push(self, branch: str) -> None:

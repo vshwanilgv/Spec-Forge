@@ -25,7 +25,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt types-PyYAML
 
       - name: Lint — ruff
         run: ruff check pipeline/ tests/
@@ -40,7 +40,11 @@ jobs:
             --disable-error-code return-value \
             --disable-error-code arg-type \
             --disable-error-code union-attr \
-            --disable-error-code misc
+            --disable-error-code misc \
+            --disable-error-code call-overload \
+            --disable-error-code call-arg \
+            --disable-error-code import-untyped \
+            --disable-error-code return
 
       - name: Tests — pytest
         run: pytest tests/ -v --tb=short

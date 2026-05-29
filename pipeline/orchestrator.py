@@ -26,9 +26,7 @@ from pipeline.models import (
 )
 from pipeline.state.store import StateStore
 
-# Model is read from config at runtime — see _get_decision()
 _JSON_RESPONSE_FORMAT: dict = {"type": "json_object"}
-# Branch names are built per-run in _handle_checkpoint_1 / _handle_checkpoint_2
 _CLONE_URL_TEMPLATE = "https://{token}@github.com/{repo}.git"
 
 
@@ -54,15 +52,10 @@ class Orchestrator:
         self._approval: GitHubApproval | None = None
         self._orchestrator_prompt = self._load_orchestrator_prompt()
 
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
 
     def run(self) -> None:
         import time
         self._webhook.start(self._config.WEBHOOK_PORT)
-        # Give uvicorn time to fully bind before opening any PR.
-        # Without this, a fast merge can arrive before the listener is ready.
         time.sleep(3)
 
         while True:
@@ -90,10 +83,6 @@ class Orchestrator:
                     aborted = self._handle_agent(agent_name, decision.retry_allowed)
                     if aborted:
                         return
-
-    # ------------------------------------------------------------------
-    # Orchestrator decision
-    # ------------------------------------------------------------------
 
     def _load_orchestrator_prompt(self) -> str:
         path = Path(self._config.PROMPTS_DIR) / "orchestrator.txt"
@@ -156,9 +145,6 @@ class Orchestrator:
             )
         )
 
-    # ------------------------------------------------------------------
-    # Agent dispatch
-    # ------------------------------------------------------------------
 
     def _handle_agent(self, agent_name: str, retry_allowed: bool) -> bool:
         """Returns True if the pipeline was aborted.
@@ -285,10 +271,6 @@ class Orchestrator:
             case _:
                 raise ValueError(f"No context builder for agent: '{agent_name}'")
 
-    # ------------------------------------------------------------------
-    # Quality gates
-    # ------------------------------------------------------------------
-
     def _handle_quality_gates(self) -> bool:
         """Returns True if the pipeline was aborted."""
         repo_path = str(self._run_dir / "repo")
@@ -316,10 +298,6 @@ class Orchestrator:
         self._state.quality_gates_passed = True
         self._state_store.save(self._state)
         return False
-
-    # ------------------------------------------------------------------
-    # Checkpoint (GitHub PR + webhook)
-    # ------------------------------------------------------------------
 
     def _handle_checkpoint(self) -> bool:
         """Returns True if the pipeline was aborted."""
@@ -376,9 +354,6 @@ class Orchestrator:
         self._state_store.save(self._state)
         return False
 
-    # ------------------------------------------------------------------
-    # Finalise / abort
-    # ------------------------------------------------------------------
 
     def _finalise(self) -> None:
         self._state.status = "completed"
@@ -405,10 +380,6 @@ class Orchestrator:
             )
         )
         print(f"Pipeline aborted: {reason}")
-
-    # ------------------------------------------------------------------
-    # Data extraction from agent results
-    # ------------------------------------------------------------------
 
     def _last_successful_result(self, agent_name: str) -> AgentResult | None:
         for result in reversed(self._state.agent_results):
@@ -457,9 +428,6 @@ class Orchestrator:
                 )
         return source + tests
 
-    # ------------------------------------------------------------------
-    # Repo + approval initialisation
-    # ------------------------------------------------------------------
 
     def _summarise_state_for_routing(self) -> str:
         """Return a token-efficient state summary for orchestrator routing decisions.

@@ -1,0 +1,47 @@
+name: Pipeline CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint — ruff
+        run: ruff check pipeline/ tests/
+
+      - name: Type check — mypy
+        run: mypy pipeline/ --ignore-missing-imports --strict
+
+      - name: Tests — pytest
+        run: pytest tests/ -v --tb=short
+        env:
+          LLM_API_KEY: "ci-placeholder"
+          LLM_BASE_URL: "https://api.openai.com/v1"
+          LLM_MODEL: "gpt-4o"
+          GITHUB_TOKEN: "ci-placeholder"
+          GITHUB_TARGET_REPO: "owner/repo"
+          GITHUB_SOURCE_REPO: "owner/spec-pipeline"
+          GITHUB_WEBHOOK_SECRET: "ci-placeholder"
+          NGROK_AUTH_TOKEN: "ci-placeholder"
+          ALLOWED_DIRS: "src:tests"
+
+      - name: Security scan — bandit
+        run: bandit -r pipeline/ -q -ll
